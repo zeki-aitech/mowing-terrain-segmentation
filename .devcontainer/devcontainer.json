@@ -1,5 +1,5 @@
 {
-    "image": "pytorch/pytorch:2.6.0-cuda12.6-cudnn9-runtime",
+    "image": "pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel",
     "name": "visual-segmentation-benchmark-for-off-road-navigation-demo",
     "runArgs": [
         "--name", "visual-segmentation-benchmark-for-off-road-navigation-demo",
