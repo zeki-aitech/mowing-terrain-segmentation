@@ -51,7 +51,14 @@ class YCORDataset(BaseSegDataset):
         
         # Determine which split to load based on data_prefix
         if hasattr(self, 'data_prefix') and 'img_path' in self.data_prefix:
-            splits_to_load = [self.data_prefix['img_path']]
+            # Extract just the split name from the full path
+            img_path = self.data_prefix['img_path']
+            if img_path.startswith(data_root):
+                # Remove data_root prefix to get just the split name
+                split_name = img_path[len(data_root):].lstrip('/')
+            else:
+                split_name = img_path
+            splits_to_load = [split_name]
         else:
             # Default: load both splits (for backward compatibility)
             splits_to_load = ['train', 'valid']
@@ -77,6 +84,7 @@ class YCORDataset(BaseSegDataset):
                             'seg_map_path': labels_file,
                             'seg_fields': [],  # Required by MMSegmentation
                             'sample_idx': len(data_list),  # Required by MMSegmentation
+                            'reduce_zero_label': False,  # Required by MMSegmentation
                             'split': split,  # Custom field for your dataset
                             'sample_id': sample_dir  # Custom field for your dataset
                         })
