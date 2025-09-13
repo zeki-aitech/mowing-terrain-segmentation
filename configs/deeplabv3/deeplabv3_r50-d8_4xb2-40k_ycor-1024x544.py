@@ -16,4 +16,5 @@ data_preprocessor = dict(size=crop_size)
 model = dict(
     data_preprocessor=data_preprocessor,
     decode_head=dict(num_classes=9),  # YCOR has 9 classes
-    auxiliary_head=dict(num_classes=9))  # YCOR has 9 classes
+    auxiliary_head=dict(num_classes=9)  # YCOR has 9 classes
+)

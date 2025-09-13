@@ -3,13 +3,15 @@
 Custom datasets package for visual segmentation benchmark.
 """
 
-# Import all custom datasets to register them with MMSegmentation
+# Import all modules to register them with MMSegmentation
 from . import datasets
+from . import models
 
-# Re-export all datasets for convenience
+# Re-export all modules for convenience
 from .datasets import *
+from .models import *
 
 __all__ = [
     'datasets',
-    # All dataset names are automatically included via "from .datasets import *"
+    'models',
 ]

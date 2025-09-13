@@ -95,3 +95,4 @@ docs/build/
 .dmypy.json
 dmypy.json
 
+work_dirs/

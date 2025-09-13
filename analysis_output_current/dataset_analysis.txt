@@ -1,0 +1,200 @@
+Output directory: analysis_output_current
+Loading datasets...
+
+============================================================
+ANALYZING TRAINING DATASET
+============================================================
+Dataset: TRAINING
+Total samples: 931
+Number of classes: 8
+Classes: ('smooth_trail', 'traversable_grass', 'rough_trail', 'puddle', 'obstacle', 'non_traversable_vegetation', 'high_vegetation', 'sky')
+
+Processing 931 samples...
+
+============================================================
+CLASS DISTRIBUTION ANALYSIS - TRAINING
+============================================================
+Class ID Class Name                Pixel Count     Percentage  
+------------------------------------------------------------
+0        smooth_trail              63,135,367      18.59       %
+1        traversable_grass         41,259,911      12.15       %
+2        rough_trail               56,451,921      16.62       %
+3        puddle                    604,432         0.18        %
+4        obstacle                  2,746,355       0.81        %
+5        non_traversable_vegetation 16,994,944      5.00        %
+6        high_vegetation           104,849,060     30.87       %
+7        sky                       41,921,549      12.34       %
+255      Unknown_255               11,674,491      3.44        %
+------------------------------------------------------------
+TOTAL    All Classes               339,638,030     100.00%     
+
+============================================================
+ANALYZING VALIDATION DATASET
+============================================================
+Dataset: VALIDATION
+Total samples: 145
+Number of classes: 8
+Classes: ('smooth_trail', 'traversable_grass', 'rough_trail', 'puddle', 'obstacle', 'non_traversable_vegetation', 'high_vegetation', 'sky')
+
+Processing 145 samples...
+
+============================================================
+CLASS DISTRIBUTION ANALYSIS - VALIDATION
+============================================================
+Class ID Class Name                Pixel Count     Percentage  
+------------------------------------------------------------
+0        smooth_trail              11,247,164      13.92       %
+1        traversable_grass         12,565,073      15.56       %
+2        rough_trail               12,481,369      15.45       %
+3        puddle                    110,494         0.14        %
+4        obstacle                  1,526,245       1.89        %
+5        non_traversable_vegetation 5,085,590       6.30        %
+6        high_vegetation           25,155,266      31.14       %
+7        sky                       8,332,122       10.32       %
+255      Unknown_255               4,269,797       5.29        %
+------------------------------------------------------------
+TOTAL    All Classes               80,773,120      100.00%     
+
+============================================================
+DATASET COMPARISON
+============================================================
+Class                     Train %      Valid %      Difference  
+------------------------------------------------------------
+smooth_trail              18.59        13.92        4.66        
+traversable_grass         12.15        15.56        -3.41       
+rough_trail               16.62        15.45        1.17        
+puddle                    0.18         0.14         0.04        
+obstacle                  0.81         1.89         -1.08       
+non_traversable_vegetation 5.00         6.30         -1.29       
+high_vegetation           30.87        31.14        -0.27       
+sky                       12.34        10.32        2.03        
+Unknown_255               3.44         5.29         -1.85       
+
+============================================================
+SUMMARY
+============================================================
+Training samples: 931
+Validation samples: 145
+Training pixels: 339,638,030
+Validation pixels: 80,773,120
+Total samples: 1,076
+Total pixels: 420,411,150
+
+============================================================
+CLASS WEIGHTS CALCULATION FOR WEIGHTED LOSS TO HANDLE CLASS IMBALANCE
+============================================================
+Training Dataset Class Weights:
+Class ID Class Name                Inverse Freq    Sqrt Inverse    Log Inverse    
+--------------------------------------------------------------------------------
+0        smooth_trail              0.6724          2.3194          1.6826         
+1        traversable_grass         1.0290          2.8691          2.1080         
+2        rough_trail               0.7521          2.4528          1.7945         
+3        puddle                    70.2391         23.7047         6.3313         
+4        obstacle                  15.4586         11.1206         4.8176         
+5        non_traversable_vegetation 2.4981          4.4704          2.9950         
+6        high_vegetation           0.4049          1.7998          1.1754         
+7        sky                       1.0127          2.8464          2.0921         
+
+Validation Dataset Class Weights:
+Class ID Class Name                Inverse Freq    Sqrt Inverse    Log Inverse    
+--------------------------------------------------------------------------------
+0        smooth_trail              0.8977          2.6799          1.9715         
+1        traversable_grass         0.8035          2.5354          1.8607         
+2        rough_trail               0.8089          2.5439          1.8674         
+3        puddle                    91.3773         27.0373         6.5944         
+4        obstacle                  6.6153          7.2748          3.9688         
+5        non_traversable_vegetation 1.9853          3.9853          2.7652         
+6        high_vegetation           0.4014          1.7919          1.1666         
+7        sky                       1.2118          3.1135          2.2715         
+
+============================================================
+CLASS WEIGHTS FOR TRAINING
+============================================================
+# ===== TRAINING DATASET WEIGHTS =====
+
+# Inverse Frequency Weights (Training)
+inverse_frequency_weights_train = [
+0.672440,
+1.028959,
+0.752052,
+70.239090,
+15.458582,
+2.498081,
+0.404913,
+1.012719
+]
+
+# Square Root Inverse Weights (Training)
+sqrt_inverse_weights_train = [
+2.319379,
+2.869089,
+2.452838,
+23.704698,
+11.120641,
+4.470420,
+1.799807,
+2.846358
+]
+
+# Log Inverse Weights (Training)
+log_inverse_weights_train = [
+1.682599,
+2.107989,
+1.794491,
+6.331347,
+4.817606,
+2.994965,
+1.175359,
+2.092080
+]
+
+# ===== VALIDATION DATASET WEIGHTS =====
+
+# Inverse Frequency Weights (Validation)
+inverse_frequency_weights_valid = [
+0.897705,
+0.803548,
+0.808937,
+91.377269,
+6.615347,
+1.985343,
+0.401373,
+1.211773
+]
+
+# Square Root Inverse Weights (Validation)
+sqrt_inverse_weights_valid = [
+2.679859,
+2.535426,
+2.543913,
+27.037347,
+7.274804,
+3.985316,
+1.791921,
+3.113548
+]
+
+# Log Inverse Weights (Validation)
+log_inverse_weights_valid = [
+1.971528,
+1.860723,
+1.867407,
+6.594438,
+3.968834,
+2.765233,
+1.166577,
+2.271526
+]
+
+# ===== CLASS NAMES =====
+
+class_names = [
+'smooth_trail',
+'traversable_grass',
+'rough_trail',
+'puddle',
+'obstacle',
+'non_traversable_vegetation',
+'high_vegetation',
+'sky'
+]

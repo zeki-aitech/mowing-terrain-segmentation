@@ -6,13 +6,13 @@ from mmseg.registry import DATASETS
 class YCORDataset(BaseSegDataset):
     """YCOR dataset for off-road navigation segmentation.
     
-    This dataset contains 1,076 images (931 train + 145 valid) with 9 semantic classes
-    for off-road navigation. Each sample contains:
-    - rgb.jpg: RGB image (1024x544)
-    - labels.png: Segmentation mask with indexed color palette (1024x544)
+    In segmentation map annotation for YCOR, 0 stands for background, which
+    is not included in 8 categories. ``reduce_zero_label`` is fixed to True.
+    The ``img_suffix`` is fixed to '.jpg' and ``seg_map_suffix`` is fixed to
+    '.png'.
     
     Classes:
-        0: Background
+        0: Background (ignored with reduce_zero_label=True)
         1: Smooth trail  
         2: Traversable grass
         3: Rough trail
@@ -24,14 +24,19 @@ class YCORDataset(BaseSegDataset):
     """
     
     METAINFO = dict(
-        classes=('background', 'smooth_trail', 'traversable_grass', 'rough_trail',
+        classes=('smooth_trail', 'traversable_grass', 'rough_trail',
                 'puddle', 'obstacle', 'non_traversable_vegetation', 'high_vegetation', 'sky'),
-        palette=[[255, 255, 255], [178, 176, 153], [128, 255, 0], [156, 76, 30],
+        palette=[[178, 176, 153], [128, 255, 0], [156, 76, 30],
                 [255, 0, 128], [255, 0, 0], [0, 160, 0], [40, 80, 0], [1, 88, 255]]
     )
     
-    def __init__(self, img_suffix='.jpg', seg_map_suffix='.png', **kwargs):
-        super().__init__(img_suffix=img_suffix, seg_map_suffix=seg_map_suffix, **kwargs)
+    def __init__(self, img_suffix='.jpg', seg_map_suffix='.png', reduce_zero_label=True, **kwargs):
+        super().__init__(
+            img_suffix=img_suffix,
+            seg_map_suffix=seg_map_suffix,
+            reduce_zero_label=reduce_zero_label,
+            **kwargs)
+        self.reduce_zero_label = reduce_zero_label
     
     def load_data_list(self):
         """Load YCOR data structure: data/ycor/{train,valid}/iid*/{rgb.jpg, labels.png}
@@ -84,7 +89,7 @@ class YCORDataset(BaseSegDataset):
                             'seg_map_path': labels_file,
                             'seg_fields': [],  # Required by MMSegmentation
                             'sample_idx': len(data_list),  # Required by MMSegmentation
-                            'reduce_zero_label': False,  # Required by MMSegmentation
+                            'reduce_zero_label': self.reduce_zero_label,  # Required for LoadAnnotations transform
                             'split': split,  # Custom field for your dataset
                             'sample_id': sample_dir  # Custom field for your dataset
                         })
