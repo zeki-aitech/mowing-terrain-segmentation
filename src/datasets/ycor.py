@@ -1,4 +1,7 @@
 import os
+import numpy as np
+import torch  # Move import to top level for optimization
+from PIL import Image
 from mmseg.datasets import BaseSegDataset
 from mmseg.registry import DATASETS
 
@@ -111,3 +114,93 @@ class YCORDataset(BaseSegDataset):
     def _get_default_metainfo(self):
         """Get default metainfo for YCOR dataset"""
         return self.METAINFO
+
+
+@DATASETS.register_module()
+class YCORLawnMowing3ClassDataset(YCORDataset):
+    """YCOR dataset grouped for lawn mowing application.
+    
+    Groups the original 8 YCOR classes into 3 categories:
+    - Cuttable: Areas that can be mowed (grass, vegetation)
+    - Traversable: Areas safe to drive/walk on (trails, paths)
+    - Non-traversable: Obstacles, barriers, and unknown areas (obstacles, high vegetation, sky, background)
+    
+    Original class mapping:
+        0: background -> Non-traversable (safety first - unknown areas)
+        1: smooth_trail -> Traversable
+        2: traversable_grass -> Cuttable
+        3: rough_trail -> Traversable
+        4: puddle -> Non-traversable (water hazard)
+        5: obstacle -> Non-traversable
+        6: non_traversable_vegetation -> Cuttable (can be mowed)
+        7: high_vegetation -> Non-traversable (too high to mow)
+        8: sky -> Non-traversable
+    """
+    
+    METAINFO = dict(
+        classes=('Cuttable', 'Traversable', 'Non-traversable'),
+        palette=[[0, 255, 0], [178, 176, 153], [255, 0, 0]]  # Green, Gray, Red
+    )
+    
+    def __init__(self, **kwargs):
+        # Set reduce_zero_label=False since we're handling background mapping ourselves
+        kwargs['reduce_zero_label'] = False
+        super().__init__(**kwargs)        
+        
+        # Define label mapping: original_label -> new_label
+        # Background (0) is mapped to Non-traversable (2) for safety
+        self.label_map = {
+            0: 2,  # background -> Non-traversable (safety first)
+            1: 1,  # smooth_trail -> Traversable
+            2: 0,  # traversable_grass -> Cuttable
+            3: 1,  # rough_trail -> Traversable
+            4: 2,  # puddle -> Non-traversable (water hazard)
+            5: 2,  # obstacle -> Non-traversable
+            6: 0,  # non_traversable_vegetation -> Cuttable (can be mowed)
+            7: 2,  # high_vegetation -> Non-traversable (too high)
+            8: 2,  # sky -> Non-traversable
+        }
+        
+        # Pre-compute lookup table for faster remapping
+        self._create_lookup_table()
+    
+    def _create_lookup_table(self):
+        """Create a lookup table for O(1) label remapping."""
+        # Create a lookup table for all possible label values (0-255)
+        # Use int64 to match PyTorch's expected dtype for class indices
+        self.lookup_table = np.zeros(256, dtype=np.int64)
+        for old_label, new_label in self.label_map.items():
+            self.lookup_table[old_label] = new_label
+    
+    def __getitem__(self, idx):
+        """Get data sample with optimized label remapping."""
+        results = super().__getitem__(idx)
+        
+        # Apply label mapping to segmentation mask
+        if 'data_samples' in results:
+            data_sample = results['data_samples']
+            if hasattr(data_sample, 'gt_sem_seg'):
+                gt_seg = data_sample.gt_sem_seg.data
+                
+                # Optimized remapping using lookup table
+                if isinstance(gt_seg, torch.Tensor):
+                    # Use tensor operations for better performance
+                    gt_seg = self._remap_tensor(gt_seg)
+                else:
+                    # Fallback for numpy arrays
+                    gt_seg = self._remap_numpy(gt_seg)
+                
+                data_sample.gt_sem_seg.data = gt_seg
+        
+        return results
+    
+    def _remap_tensor(self, gt_seg):
+        """Optimized tensor remapping using vectorized operations."""
+        # Convert to numpy for lookup, then back to tensor
+        gt_seg_np = gt_seg.cpu().numpy()
+        gt_seg_remapped = self.lookup_table[gt_seg_np]
+        return torch.from_numpy(gt_seg_remapped).to(gt_seg.device)
+    
+    def _remap_numpy(self, gt_seg):
+        """Optimized numpy remapping using lookup table."""
+        return self.lookup_table[gt_seg]

@@ -66,7 +66,7 @@ def calculate_class_weights(class_counts, total_pixels, num_classes):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Analyze Dataset')
-    parser.add_argument('config', help='train config file path')
+    parser.add_argument('--config', help='train config file path')
     parser.add_argument(
         '--output-dir',
         default=None,
@@ -134,7 +134,11 @@ def main():
     
     for i, item in enumerate(train_dataset):
         # Get segmentation mask
-        seg_map = item['data_samples'].gt_sem_seg.data.squeeze().numpy()
+        seg_data = item['data_samples'].gt_sem_seg.data.squeeze()
+        if hasattr(seg_data, 'numpy'):
+            seg_map = seg_data.numpy()
+        else:
+            seg_map = seg_data
         
         # Count pixels for each class
         unique, counts = np.unique(seg_map, return_counts=True)
@@ -180,7 +184,11 @@ def main():
     
     for i, item in enumerate(valid_dataset):
         # Get segmentation mask
-        seg_map = item['data_samples'].gt_sem_seg.data.squeeze().numpy()
+        seg_data = item['data_samples'].gt_sem_seg.data.squeeze()
+        if hasattr(seg_data, 'numpy'):
+            seg_map = seg_data.numpy()
+        else:
+            seg_map = seg_data
         
         # Count pixels for each class
         unique, counts = np.unique(seg_map, return_counts=True)

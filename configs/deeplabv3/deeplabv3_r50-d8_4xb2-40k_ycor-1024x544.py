@@ -15,6 +15,6 @@ data_preprocessor = dict(size=crop_size)
 # Model configuration - override num_classes for YCOR
 model = dict(
     data_preprocessor=data_preprocessor,
-    decode_head=dict(num_classes=9),  # YCOR has 9 classes
-    auxiliary_head=dict(num_classes=9)  # YCOR has 9 classes
+    decode_head=dict(num_classes=8),  # YCOR has 8 classes (background reduced by reduce_zero_label=True)
+    auxiliary_head=dict(num_classes=8)  # YCOR has 8 classes (background reduced by reduce_zero_label=True)
 )
