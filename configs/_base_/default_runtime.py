@@ -12,7 +12,13 @@ vis_backends = [
     dict(type='TensorboardVisBackend')
 ]
 visualizer = dict(
-    type='SegLocalVisualizer', vis_backends=vis_backends, name='visualizer')
+    type='CustomSegLocalVisualizer',
+    vis_backends=vis_backends,       
+    name='custom_seg_local_visualizer',       
+    save_interval=5,                 
+    max_images_per_iter=5            
+)
+
 log_processor = dict(by_epoch=False)
 log_level = 'INFO'
 load_from = None

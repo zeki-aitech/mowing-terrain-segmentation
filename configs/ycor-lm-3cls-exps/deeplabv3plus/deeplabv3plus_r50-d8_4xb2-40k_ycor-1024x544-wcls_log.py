@@ -8,9 +8,11 @@ _base_ = [
     '../../_base_/schedules/schedule_40k.py'
 ]
 
+
 inverse_frequency_weights_train = [1.946165, 0.956220, 0.694259]
 sqrt_inverse_weights_train = [2.416298,1.693711,1.443183]
 log_inverse_weights_train = [1.764473, 1.053845, 0.733702]
+
 
 # YCOR-specific crop size (full size for maximum coverage)
 crop_size = (1024, 544)  # Full YCOR size - no information loss

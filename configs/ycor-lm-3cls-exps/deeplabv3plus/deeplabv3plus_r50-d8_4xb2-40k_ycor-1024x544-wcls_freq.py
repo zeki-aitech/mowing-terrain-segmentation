@@ -8,9 +8,11 @@ _base_ = [
     '../../_base_/schedules/schedule_40k.py'
 ]
 
+
 inverse_frequency_weights_train = [1.946165, 0.956220, 0.694259]
 sqrt_inverse_weights_train = [2.416298,1.693711,1.443183]
 log_inverse_weights_train = [1.764473, 1.053845, 0.733702]
+
 
 # YCOR-specific crop size (full size for maximum coverage)
 crop_size = (1024, 544)  # Full YCOR size - no information loss
@@ -35,7 +37,7 @@ model = dict(
             type='CrossEntropyLoss', 
             use_sigmoid=False, 
             loss_weight=1.0,
-            class_weight=log_inverse_weights_train,
+            class_weight=inverse_frequency_weights_train,
             avg_non_ignore=True,
         )
     ),  
@@ -46,7 +48,7 @@ model = dict(
             type='CrossEntropyLoss', 
             use_sigmoid=False, 
             loss_weight=0.4,
-            class_weight=log_inverse_weights_train,
+            class_weight=inverse_frequency_weights_train,
             avg_non_ignore=True,
         )
     )
