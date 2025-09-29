@@ -927,7 +927,26 @@ class MMSegInference:
                 frame_time = time.perf_counter() - frame_start
                 frame_times.append(frame_time)
                 
-                # Apply overlay if needed
+                # Get segmentation mask from result
+                if hasattr(result, 'pred_sem_seg') and result.pred_sem_seg is not None:
+                    mask = result.pred_sem_seg.data.cpu().numpy()
+                    if len(mask.shape) == 3:
+                        mask = mask[0]  # Remove batch dimension if present
+                    
+                    # Get dataset info for custom colormap
+                    dataset_info = get_dataset_info(self.config_path)
+                    custom_colormap = None
+                    if dataset_info['palette']:
+                        custom_colormap = create_custom_colormap(dataset_info['palette'], dataset_info['num_classes'])
+                    
+                    # Create segmentation overlay
+                    frame = create_visualization_overlay(
+                        frame, mask, 
+                        opacity=kwargs.get('opacity', 0.7),
+                        custom_colormap=custom_colormap
+                    )
+                
+                # Apply FPS overlay if needed
                 if kwargs.get('overlay_fps', False):
                     frame_fps = 1.0 / frame_time if frame_time > 0 else 0.0
                     frame = self._overlay_fps_on_frame(frame, frame_fps)
