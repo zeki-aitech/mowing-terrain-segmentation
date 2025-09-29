@@ -161,6 +161,16 @@ Examples:
     )
     
     parser.add_argument(
+        '--conf-threshold',
+        type=str,
+        default=None,
+        help='Confidence threshold(s) for filtering predictions. '
+             'Single value (e.g., 0.8) applies to all classes. '
+             'Comma-separated list (e.g., 0.9,0.7,0.8) applies per-class. '
+             'Filtered pixels will be colored black.'
+    )
+    
+    parser.add_argument(
         '--img-extensions',
         nargs='+',
         default=['.jpg', '.jpeg', '.png', '.bmp', '.tiff'],
@@ -791,6 +801,28 @@ class MMSegInference:
             else:
                 raise ValueError("No segmentation mask found in result")
             
+            # Apply confidence threshold if specified
+            if kwargs.get('conf_thresholds') is not None:
+                # Get confidence scores from seg_logits
+                if hasattr(result, 'seg_logits') and result.seg_logits is not None:
+                    # Extract logits and convert to probabilities
+                    import torch
+                    import torch.nn.functional as F
+                    
+                    logits = result.seg_logits.data.cpu().numpy()
+                    # logits shape is [num_classes, height, width] - no batch dimension
+                    
+                    # Convert to probabilities using softmax
+                    logits_tensor = torch.from_numpy(logits)
+                    probs = F.softmax(logits_tensor, dim=0).numpy()
+                    confidence_scores = np.max(probs, axis=0)
+                    
+                    # Apply confidence threshold
+                    mask = apply_confidence_threshold(mask, confidence_scores, kwargs['conf_thresholds'])
+                    logging.info(f"Applied confidence thresholding. Confidence range: {confidence_scores.min():.4f} to {confidence_scores.max():.4f}")
+                else:
+                    logging.warning("No seg_logits found in result. Skipping confidence filtering.")
+            
             # Save segmentation result
             save_success = save_segmentation_result(
                 original_image, mask, overlay_path,
@@ -932,6 +964,27 @@ class MMSegInference:
                     mask = result.pred_sem_seg.data.cpu().numpy()
                     if len(mask.shape) == 3:
                         mask = mask[0]  # Remove batch dimension if present
+                    
+                    # Apply confidence threshold if specified
+                    if kwargs.get('conf_thresholds') is not None:
+                        # Get confidence scores from seg_logits
+                        if hasattr(result, 'seg_logits') and result.seg_logits is not None:
+                            # Extract logits and convert to probabilities
+                            import torch
+                            import torch.nn.functional as F
+                            
+                            logits = result.seg_logits.data.cpu().numpy()
+                            # logits shape is [num_classes, height, width] - no batch dimension
+                            
+                            # Convert to probabilities using softmax
+                            logits_tensor = torch.from_numpy(logits)
+                            probs = F.softmax(logits_tensor, dim=0).numpy()
+                            confidence_scores = np.max(probs, axis=0)
+                            
+                            # Apply confidence threshold
+                            mask = apply_confidence_threshold(mask, confidence_scores, kwargs['conf_thresholds'])
+                        else:
+                            logging.warning("No seg_logits found in result. Skipping confidence filtering.")
                     
                     # Get dataset info for custom colormap
                     dataset_info = get_dataset_info(self.config_path)
@@ -1213,6 +1266,34 @@ def validate_checkpoint_file(checkpoint_path: Union[str, Path]) -> bool:
         return False
 
 
+def apply_confidence_threshold(mask: np.ndarray, confidence_scores: np.ndarray, 
+                              thresholds: List[float]) -> np.ndarray:
+    """
+    Apply confidence threshold filtering to segmentation mask.
+    
+    Args:
+        mask (np.ndarray): Segmentation mask
+        confidence_scores (np.ndarray): Confidence scores for each pixel
+        thresholds (List[float]): Confidence thresholds per class
+        
+    Returns:
+        np.ndarray: Filtered mask with black pixels for low-confidence areas
+    """
+    if thresholds is None:
+        return mask
+    
+    # Create filtered mask
+    filtered_mask = mask.copy()
+    
+    # Apply threshold for each class
+    for class_id, threshold in enumerate(thresholds):
+        class_mask = (mask == class_id)
+        low_confidence = (confidence_scores < threshold) & class_mask
+        filtered_mask[low_confidence] = -1  # Mark for black color
+    
+    return filtered_mask
+
+
 def create_visualization_overlay(image: np.ndarray, mask: np.ndarray, 
                                 opacity: float = 0.7, colormap: int = cv2.COLORMAP_JET,
                                 custom_colormap: np.ndarray = None) -> np.ndarray:
@@ -1264,6 +1345,19 @@ def create_visualization_overlay(image: np.ndarray, mask: np.ndarray,
                     
                     # Apply class color
                     overlay[class_mask_resized] = custom_colormap[class_id]
+            
+            # Handle filtered pixels (marked as -1) - keep them black
+            filtered_mask = (mask == -1)
+            if filtered_mask.any():
+                if mask.shape[:2] != image.shape[:2]:
+                    filtered_mask_resized = cv2.resize(filtered_mask.astype(np.uint8), 
+                                                    (image.shape[1], image.shape[0]))
+                    filtered_mask_resized = filtered_mask_resized.astype(bool)
+                else:
+                    filtered_mask_resized = filtered_mask
+                
+                # Keep filtered pixels black (already zeros from np.zeros_like)
+                pass  # No need to do anything, already black
             
             # blend with original image
             overlay = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
@@ -1450,6 +1544,49 @@ def log_processing_stats(results: List[Dict], processing_type: str = "processing
         logging.error(f"Error logging processing stats: {e}")
 
 
+def validate_conf_threshold(conf_threshold_str: str, num_classes: int) -> List[float]:
+    """
+    Validate and parse confidence threshold argument.
+    
+    Args:
+        conf_threshold_str (str): Comma-separated threshold values
+        num_classes (int): Number of classes in dataset
+        
+    Returns:
+        List[float]: Parsed threshold values
+        
+    Raises:
+        ValueError: If threshold format is invalid
+    """
+    if conf_threshold_str is None:
+        return None
+    
+    try:
+        # Parse comma-separated values
+        conf_thresholds = [float(x.strip()) for x in conf_threshold_str.split(',')]
+        
+        # Validate threshold values
+        for threshold in conf_thresholds:
+            if not 0.0 <= threshold <= 1.0:
+                raise ValueError(f"Confidence threshold must be between 0.0 and 1.0, got {threshold}")
+        
+        # Validate list length
+        if len(conf_thresholds) == 1:
+            # Apply to all classes
+            return [conf_thresholds[0]] * num_classes
+        elif len(conf_thresholds) == num_classes:
+            # Apply per-class
+            return conf_thresholds
+        else:
+            raise ValueError(f"Confidence threshold list length ({len(conf_thresholds)}) must be 1 or equal to number of classes ({num_classes})")
+            
+    except ValueError as e:
+        if "could not convert" in str(e):
+            raise ValueError(f"Invalid confidence threshold format: {conf_threshold_str}. Use comma-separated numbers (e.g., 0.8 or 0.9,0.7,0.8)")
+        else:
+            raise e
+
+
 def get_dataset_info(config_path: Union[str, Path]) -> Dict:
     """
     Get dataset information directly from config file.
@@ -1586,6 +1723,14 @@ def main():
         # Create OutputManager instance
         output_manager = OutputManager(args.output_dir, args.save_masks)
         
+        # Validate confidence thresholds
+        conf_thresholds = None
+        if args.conf_threshold is not None:
+            dataset_info = get_dataset_info(args.config)
+            num_classes = dataset_info['num_classes']
+            conf_thresholds = validate_conf_threshold(args.conf_threshold, num_classes)
+            logging.info(f"Confidence thresholds: {conf_thresholds}")
+        
         # Create MMSegInference instance
         try:
             mmseg_inference = MMSegInference(args.config, args.checkpoint, args.device)
@@ -1626,7 +1771,8 @@ def main():
                     output_manager,
                     show=args.show,
                     overlay_fps=args.overlay_fps,
-                    opacity=args.opacity
+                    opacity=args.opacity,
+                    conf_thresholds=conf_thresholds
                 )
             else:
                 # Single image processing
@@ -1638,7 +1784,8 @@ def main():
                         output_manager,
                         show=args.show,
                         overlay_fps=args.overlay_fps,
-                        opacity=args.opacity
+                        opacity=args.opacity,
+                        conf_thresholds=conf_thresholds
                     )
                     results.append(result)
             
@@ -1666,7 +1813,8 @@ def main():
                     output_manager,
                     show=args.show,
                     overlay_fps=args.overlay_fps,
-                    wait_time=args.wait_time
+                    wait_time=args.wait_time,
+                    conf_thresholds=conf_thresholds
                 )
                 
                 if result['success']:
