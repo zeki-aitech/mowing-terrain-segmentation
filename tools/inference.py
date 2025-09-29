@@ -828,7 +828,8 @@ class MMSegInference:
                 original_image, mask, overlay_path,
                 save_mask=output_manager.save_masks,
                 mask_path=mask_path,
-                custom_colormap=custom_colormap
+                custom_colormap=custom_colormap,
+                opacity=kwargs.get('opacity', 0.7)
             )
             
             if not save_success:
@@ -1298,7 +1299,7 @@ def create_visualization_overlay(image: np.ndarray, mask: np.ndarray,
                                 opacity: float = 0.7, colormap: int = cv2.COLORMAP_JET,
                                 custom_colormap: np.ndarray = None) -> np.ndarray:
     """
-    Create visualization overlay of segmentation mask on image.
+    Create visualization overlay with proper opacity blending.
     
     Args:
         image (np.ndarray): Original image
@@ -1308,62 +1309,30 @@ def create_visualization_overlay(image: np.ndarray, mask: np.ndarray,
         custom_colormap (np.ndarray): Custom colormap from dataset palette
         
     Returns:
-        np.ndarray: Image with overlay
+        np.ndarray: Blended overlay image
     """
     try:
         # Ensure mask is in correct format
         if mask.dtype != np.uint8:
             mask = mask.astype(np.uint8)
         
-        # Apply colormap to mask
+        # Create colored mask
         if custom_colormap is not None:
-            colored_mask = apply_custom_colormap(mask, custom_colormap)
-        else:
-            colored_mask = cv2.applyColorMap(mask, colormap)
-        
-        # Resize mask to match image if needed
-        if mask.shape[:2] != image.shape[:2]:
-            colored_mask = cv2.resize(colored_mask, (image.shape[1], image.shape[0]))
-        
-        # Create overlay with discrete colors (no blending for custom colormap)
-        if custom_colormap is not None:
-            # For custom colormap, create pure segmentation visualization
-            # Start with a black background
-            overlay = np.zeros_like(image)
-            
-            # Apply colors for each class
+            # Use custom colormap from dataset
+            colored_mask = np.zeros((*mask.shape, 3), dtype=np.uint8)
             for class_id in range(len(custom_colormap)):
                 class_mask = (mask == class_id)
-                if class_mask.any():
-                    # Resize mask if needed
-                    if mask.shape[:2] != image.shape[:2]:
-                        class_mask_resized = cv2.resize(class_mask.astype(np.uint8), 
-                                                      (image.shape[1], image.shape[0]))
-                        class_mask_resized = class_mask_resized.astype(bool)
-                    else:
-                        class_mask_resized = class_mask
-                    
-                    # Apply class color
-                    overlay[class_mask_resized] = custom_colormap[class_id]
-            
-            # Handle filtered pixels (marked as -1) - keep them black
-            filtered_mask = (mask == -1)
-            if filtered_mask.any():
-                if mask.shape[:2] != image.shape[:2]:
-                    filtered_mask_resized = cv2.resize(filtered_mask.astype(np.uint8), 
-                                                    (image.shape[1], image.shape[0]))
-                    filtered_mask_resized = filtered_mask_resized.astype(bool)
-                else:
-                    filtered_mask_resized = filtered_mask
-                
-                # Keep filtered pixels black (already zeros from np.zeros_like)
-                pass  # No need to do anything, already black
-            
-            # blend with original image
-            overlay = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
+                colored_mask[class_mask] = custom_colormap[class_id]
         else:
-            # For default colormap, use blending
-            overlay = cv2.addWeighted(image, 1 - opacity, colored_mask, opacity, 0)
+            # Use default OpenCV colormap
+            colored_mask = cv2.applyColorMap(mask, colormap)
+        
+        # Resize colored mask to match image if needed
+        if colored_mask.shape[:2] != image.shape[:2]:
+            colored_mask = cv2.resize(colored_mask, (image.shape[1], image.shape[0]))
+        
+        # Blend with proper opacity using cv2.addWeighted
+        overlay = cv2.addWeighted(image, 1 - opacity, colored_mask, opacity, 0)
         
         return overlay
         
@@ -1375,7 +1344,7 @@ def create_visualization_overlay(image: np.ndarray, mask: np.ndarray,
 def save_segmentation_result(image: np.ndarray, mask: np.ndarray, 
                            output_path: Union[str, Path], 
                            save_mask: bool = False, mask_path: Union[str, Path] = None,
-                           custom_colormap: np.ndarray = None) -> bool:
+                           custom_colormap: np.ndarray = None, opacity: float = 0.7) -> bool:
     """
     Save segmentation result (image with overlay and optional mask).
     
@@ -1386,6 +1355,7 @@ def save_segmentation_result(image: np.ndarray, mask: np.ndarray,
         save_mask (bool): Whether to save raw mask
         mask_path (Union[str, Path]): Path to save raw mask
         custom_colormap (np.ndarray): Custom colormap from dataset palette
+        opacity (float): Overlay opacity (0.0-1.0)
         
     Returns:
         bool: True if successful, False otherwise
@@ -1393,8 +1363,8 @@ def save_segmentation_result(image: np.ndarray, mask: np.ndarray,
     try:
         output_path = Path(output_path)
         
-        # Create visualization overlay with custom colormap
-        overlay = create_visualization_overlay(image, mask, custom_colormap=custom_colormap)
+        # Create visualization overlay with custom colormap and opacity
+        overlay = create_visualization_overlay(image, mask, opacity=opacity, custom_colormap=custom_colormap)
         
         # Save overlay image
         success = cv2.imwrite(str(output_path), overlay)
