@@ -96,3 +96,6 @@ docs/build/
 dmypy.json
 
 work_dirs/
+
+
+assets/

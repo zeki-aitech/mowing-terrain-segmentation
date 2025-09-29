@@ -5,6 +5,10 @@ dataset_type = 'YCORLawnMowing3ClassDataset'
 data_root = 'data/ycor/'
 crop_size = (1024, 544)  # Full YCOR size - no information loss
 
+classes = ('Cuttable', 'Traversable', 'Non-traversable')
+palette = [[0, 255, 0], [178, 176, 153], [255, 0, 0]]  # Green, Gray, Red
+metainfo = dict(classes=classes, palette=palette)
+
 # Training pipeline
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -55,6 +59,7 @@ train_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type='InfiniteSampler', shuffle=True),
     dataset=dict(
+        metainfo=metainfo,
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(img_path='train', seg_map_path='train'),
@@ -67,6 +72,7 @@ val_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
+        metainfo=metainfo,
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(img_path='valid', seg_map_path='valid'),
