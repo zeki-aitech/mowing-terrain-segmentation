@@ -35,9 +35,11 @@ import torch
 from mmseg.apis import init_model, inference_model
 
 # Fix for PyTorch 2.6 weights_only loading issue
-# Set torch.load to use weights_only=False for compatibility with older checkpoints
+import os
 import torch
-torch.serialization.DEFAULT_PROTOCOL = 2
+
+# Set environment variable to disable weights_only for compatibility
+os.environ['TORCH_LOAD_WEIGHTS_ONLY'] = 'False'
 
 # Add src directory to Python path for custom datasets (similar to train.py)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -684,9 +686,15 @@ class MMSegInference:
             if not self.validate_model_config():
                 raise ValueError("Model configuration validation failed")
             
-            # Set torch.load to use weights_only=False for compatibility
-            import os
-            os.environ['TORCH_LOAD_WEIGHTS_ONLY'] = 'False'
+            # Temporarily monkey patch torch.load to use weights_only=False
+            import torch
+            original_load = torch.load
+            
+            def patched_load(*args, **kwargs):
+                kwargs['weights_only'] = False
+                return original_load(*args, **kwargs)
+            
+            torch.load = patched_load
             
             # Initialize model
             self.model = init_model(
@@ -694,6 +702,9 @@ class MMSegInference:
                 str(self.checkpoint_path),
                 device=self.device
             )
+            
+            # Restore original torch.load
+            torch.load = original_load
             
             logging.info("Model loaded successfully")
             
@@ -761,6 +772,36 @@ class MMSegInference:
             inference_time = time.perf_counter() - start_time
             fps = 1.0 / inference_time if inference_time > 0 else 0.0
             
+            # Get dataset info for custom colormap
+            dataset_info = get_dataset_info(self.config_path)
+            custom_colormap = None
+            if dataset_info['palette']:
+                custom_colormap = create_custom_colormap(dataset_info['palette'], dataset_info['num_classes'])
+            
+            # Load original image for overlay
+            original_image = cv2.imread(str(img_path))
+            if original_image is None:
+                raise ValueError(f"Could not load image: {img_path}")
+            
+            # Get segmentation mask from result
+            if hasattr(result, 'pred_sem_seg') and result.pred_sem_seg is not None:
+                mask = result.pred_sem_seg.data.cpu().numpy()
+                if len(mask.shape) == 3:
+                    mask = mask[0]  # Remove batch dimension if present
+            else:
+                raise ValueError("No segmentation mask found in result")
+            
+            # Save segmentation result
+            save_success = save_segmentation_result(
+                original_image, mask, overlay_path,
+                save_mask=output_manager.save_masks,
+                mask_path=mask_path,
+                custom_colormap=custom_colormap
+            )
+            
+            if not save_success:
+                raise ValueError(f"Failed to save segmentation result: {overlay_path}")
+            
             # Process results
             processing_result = {
                 'input_path': img_path,
@@ -775,6 +816,9 @@ class MMSegInference:
             logging.info(f"Image processed successfully: {img_path}")
             logging.info(f"  - FPS: {fps:.2f}")
             logging.info(f"  - Inference time: {inference_time:.4f}s")
+            logging.info(f"  - Saved overlay: {overlay_path}")
+            if output_manager.save_masks:
+                logging.info(f"  - Saved mask: {mask_path}")
             
             return processing_result
             
@@ -1181,8 +1225,32 @@ def create_visualization_overlay(image: np.ndarray, mask: np.ndarray,
         if mask.shape[:2] != image.shape[:2]:
             colored_mask = cv2.resize(colored_mask, (image.shape[1], image.shape[0]))
         
-        # Create overlay
-        overlay = cv2.addWeighted(image, 1 - opacity, colored_mask, opacity, 0)
+        # Create overlay with discrete colors (no blending for custom colormap)
+        if custom_colormap is not None:
+            # For custom colormap, create pure segmentation visualization
+            # Start with a black background
+            overlay = np.zeros_like(image)
+            
+            # Apply colors for each class
+            for class_id in range(len(custom_colormap)):
+                class_mask = (mask == class_id)
+                if class_mask.any():
+                    # Resize mask if needed
+                    if mask.shape[:2] != image.shape[:2]:
+                        class_mask_resized = cv2.resize(class_mask.astype(np.uint8), 
+                                                      (image.shape[1], image.shape[0]))
+                        class_mask_resized = class_mask_resized.astype(bool)
+                    else:
+                        class_mask_resized = class_mask
+                    
+                    # Apply class color
+                    overlay[class_mask_resized] = custom_colormap[class_id]
+            
+            # blend with original image
+            overlay = cv2.addWeighted(image, 0.3, overlay, 0.7, 0)
+        else:
+            # For default colormap, use blending
+            overlay = cv2.addWeighted(image, 1 - opacity, colored_mask, opacity, 0)
         
         return overlay
         
@@ -1388,6 +1456,23 @@ def get_dataset_info(config_path: Union[str, Path]) -> Dict:
             'num_classes': len(metainfo.get('classes', []))
         }
     else:
+        # Try to get from base config if this config uses _base_ imports
+        try:
+            base_config_path = 'configs/_base_/datasets/ycor-lm-3cls.py'
+            base_spec = importlib.util.spec_from_file_location("base_config", base_config_path)
+            base_config_module = importlib.util.module_from_spec(base_spec)
+            base_spec.loader.exec_module(base_config_module)
+            
+            base_metainfo = getattr(base_config_module, 'metainfo', None)
+            if base_metainfo:
+                return {
+                    'classes': base_metainfo.get('classes'),
+                    'palette': base_metainfo.get('palette'),
+                    'num_classes': len(base_metainfo.get('classes', []))
+                }
+        except Exception as e:
+            logging.warning(f"Could not load base config: {e}")
+        
         return {
             'classes': None,
             'palette': None,
@@ -1412,7 +1497,8 @@ def create_custom_colormap(palette: List[List[int]], num_classes: int) -> np.nda
         
         for i, color in enumerate(palette):
             if i < num_classes:
-                colormap[i] = color
+                # Convert RGB to BGR for OpenCV
+                colormap[i] = [color[2], color[1], color[0]]  # RGB -> BGR
         
         return colormap
         
