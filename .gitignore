@@ -71,6 +71,9 @@ experiments/
 *.h5
 *.hdf5
 
+# TensorBoard event files
+*.tfevents*
+
 # Large files
 *.zip
 *.tar.gz
