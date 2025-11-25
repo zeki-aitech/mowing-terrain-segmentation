@@ -1,4 +1,4 @@
-# Visual Segmentation Benchmark for Off-Road Navigation
+# Mowing Terrain Segmentation
 
 A semantic segmentation benchmark for off-road navigation and autonomous lawn mowing applications, built on MMSegmentation framework.
 
