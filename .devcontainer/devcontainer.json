@@ -1,8 +1,8 @@
 {
     "image": "pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel",
-    "name": "visual-segmentation-benchmark-for-off-road-navigation-demo",
+    "name": "mowing-terrain-segmentation-demo",
     "runArgs": [
-        "--name", "visual-segmentation-benchmark-for-off-road-navigation-demo",
+        "--name", "mowing-terrain-segmentation-demo",
         "--net", "host",
         "--gpus", "all",
         "--shm-size=16g",
@@ -10,7 +10,7 @@
         "-e", "DISPLAY=:0",
         "-v", "/tmp/.X11-unix:/tmp/.X11-unix:rw"
     ],
-    "postCreateCommand": "bash -c 'apt-get update && apt-get install -y git libgl1 libglib2.0-0 && pip install -r requirements.txt'",
+    // "postCreateCommand": "bash -c 'apt-get update && apt-get install -y git libgl1 libglib2.0-0 && pip install -r requirements.txt'",
     "customizations": {
         "vscode": {
             "extensions": [
